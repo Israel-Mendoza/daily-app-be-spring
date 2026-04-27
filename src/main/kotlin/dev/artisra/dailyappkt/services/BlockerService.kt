@@ -5,16 +5,16 @@ import dev.artisra.dailyappkt.models.requests.CreateBlockerRequest
 import dev.artisra.dailyappkt.models.requests.UpdateBlockerRequest
 import dev.artisra.dailyappkt.models.responses.BlockerResponse
 import dev.artisra.dailyappkt.repositories.BlockerRepository
-import dev.artisra.dailyappkt.repositories.SubTaskRepository
-import dev.artisra.dailyappkt.repositories.TaskRepository
+import dev.artisra.dailyappkt.entities.SubTask
+import dev.artisra.dailyappkt.entities.Task
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
 class BlockerService(
     private val blockerRepository: BlockerRepository,
-    private val taskRepository: TaskRepository,
-    private val subTaskRepository: SubTaskRepository
+    private val taskOwnershipGuardService: TaskOwnershipGuardService,
+    private val taskSynchronizerService: TaskSynchronizerService,
 ) {
 
     fun findAll(): List<BlockerResponse> = blockerRepository.findAll().map { it.toBlockerResponse() }
@@ -26,20 +26,8 @@ class BlockerService(
         blockerRepository.findByTaskId(taskId).map { it.toBlockerResponse() }
 
     fun save(taskId: Int, blocker: CreateBlockerRequest): BlockerResponse {
-        val task = taskRepository.findById(taskId).orElse(null)
-            ?: throw IllegalArgumentException("Task not found")
-
-        val subTask = if (blocker.subTaskId != null) {
-            val st = subTaskRepository.findById(blocker.subTaskId).orElse(null)
-                ?: throw IllegalArgumentException("SubTask not found")
-            // Verify that the subtask belongs to the task
-            if (st.task.id != taskId) {
-                throw IllegalArgumentException("SubTask does not belong to the specified task")
-            }
-            st
-        } else {
-            null
-        }
+        val task = ensureTaskExists(taskId)
+        val subTask = ensureSubTaskBelongsToTask(taskId, blocker.subTaskId)
 
         val newBlocker = Blocker(
             task = task,
@@ -47,7 +35,9 @@ class BlockerService(
             reason = blocker.reason,
             isResolved = false
         )
-        return blockerRepository.save(newBlocker).toBlockerResponse()
+        val savedBlocker = blockerRepository.save(newBlocker)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+        return savedBlocker.toBlockerResponse()
     }
 
     fun replace(id: Int, taskId: Int, blocker: CreateBlockerRequest): BlockerResponse {
@@ -59,24 +49,15 @@ class BlockerService(
             throw IllegalArgumentException("Blocker does not belong to the specified task")
         }
 
-        val task = taskRepository.findById(taskId).orElse(null)
-            ?: throw IllegalArgumentException("Task not found")
-
-        val subTask = if (blocker.subTaskId != null) {
-            val st = subTaskRepository.findById(blocker.subTaskId).orElse(null)
-                ?: throw IllegalArgumentException("SubTask not found")
-            if (st.task.id != taskId) {
-                throw IllegalArgumentException("SubTask does not belong to the specified task")
-            }
-            st
-        } else {
-            null
-        }
+        val task = ensureTaskExists(taskId)
+        val subTask = ensureSubTaskBelongsToTask(taskId, blocker.subTaskId)
 
         existingBlocker.task = task
         existingBlocker.subTask = subTask
         existingBlocker.reason = blocker.reason
-        return blockerRepository.save(existingBlocker).toBlockerResponse()
+        val savedBlocker = blockerRepository.save(existingBlocker)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+        return savedBlocker.toBlockerResponse()
     }
 
     fun update(id: Int, taskId: Int, blocker: UpdateBlockerRequest): BlockerResponse {
@@ -92,18 +73,20 @@ class BlockerService(
         blocker.isResolved?.let { existingBlocker.isResolved = it }
 
         if (blocker.subTaskId != null) {
-            val st = subTaskRepository.findById(blocker.subTaskId).orElse(null)
-                ?: throw IllegalArgumentException("SubTask not found")
-            if (st.task.id != taskId) {
-                throw IllegalArgumentException("SubTask does not belong to the specified task")
-            }
-            existingBlocker.subTask = st
+            existingBlocker.subTask = ensureSubTaskBelongsToTask(taskId, blocker.subTaskId)
         }
 
-        return blockerRepository.save(existingBlocker).toBlockerResponse()
+        val savedBlocker = blockerRepository.save(existingBlocker)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+        return savedBlocker.toBlockerResponse()
     }
 
-    fun deleteById(id: Int) = blockerRepository.deleteById(id)
+    fun deleteById(id: Int) {
+        val blocker = blockerRepository.findById(id).orElseThrow { IllegalArgumentException("Blocker not found") }
+        val taskId = blocker.task.id ?: throw IllegalArgumentException("Task not found")
+        blockerRepository.deleteById(id)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+    }
 
     fun resolve(id: Int, taskId: Int): BlockerResponse {
         val blocker = blockerRepository.findById(id)
@@ -115,7 +98,9 @@ class BlockerService(
         }
 
         blocker.isResolved = true
-        return blockerRepository.save(blocker).toBlockerResponse()
+        val savedBlocker = blockerRepository.save(blocker)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+        return savedBlocker.toBlockerResponse()
     }
 
     fun reopen(id: Int, taskId: Int): BlockerResponse {
@@ -128,8 +113,16 @@ class BlockerService(
         }
 
         blocker.isResolved = false
-        return blockerRepository.save(blocker).toBlockerResponse()
+        val savedBlocker = blockerRepository.save(blocker)
+        taskSynchronizerService.syncTaskWithBlockers(taskId)
+        return savedBlocker.toBlockerResponse()
     }
+
+    private fun ensureTaskExists(taskId: Int): Task =
+        taskOwnershipGuardService.ensureTaskExists(taskId)
+
+    private fun ensureSubTaskBelongsToTask(taskId: Int, subTaskId: Int?): SubTask? =
+        taskOwnershipGuardService.ensureSubTaskBelongsToTask(taskId, subTaskId)
 
     companion object {
         private val log = LoggerFactory.getLogger(BlockerService::class.java)

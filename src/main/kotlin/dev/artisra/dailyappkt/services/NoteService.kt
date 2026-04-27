@@ -5,15 +5,12 @@ import dev.artisra.dailyappkt.models.requests.CreateNoteRequest
 import dev.artisra.dailyappkt.models.requests.UpdateNoteRequest
 import dev.artisra.dailyappkt.models.responses.NoteResponse
 import dev.artisra.dailyappkt.repositories.NoteRepository
-import dev.artisra.dailyappkt.repositories.SubTaskRepository
-import dev.artisra.dailyappkt.repositories.TaskRepository
 import org.springframework.stereotype.Service
 
 @Service
 class NoteService(
     private val noteRepository: NoteRepository,
-    private val taskRepository: TaskRepository,
-    private val subTaskRepository: SubTaskRepository,
+    private val taskOwnershipGuardService: TaskOwnershipGuardService,
 ) {
 
     fun findByTaskId(taskId: Int): List<NoteResponse> =
@@ -26,8 +23,7 @@ class NoteService(
     }
 
     fun save(taskId: Int, note: CreateNoteRequest): NoteResponse {
-        val task = taskRepository.findById(taskId).orElse(null)
-            ?: throw IllegalArgumentException("Task not found")
+        val task = taskOwnershipGuardService.ensureTaskExists(taskId)
 
         val subTask = validateAndGetSubTask(taskId, note.subTaskId)
 
@@ -46,8 +42,7 @@ class NoteService(
 
         validateNoteOwnership(existingNote, taskId)
 
-        val task = taskRepository.findById(taskId).orElse(null)
-            ?: throw IllegalArgumentException("Task not found")
+        val task = taskOwnershipGuardService.ensureTaskExists(taskId)
 
         val subTask = validateAndGetSubTask(taskId, note.subTaskId)
 
@@ -88,16 +83,7 @@ class NoteService(
     }
 
     private fun validateAndGetSubTask(taskId: Int, subTaskId: Int?) =
-        if (subTaskId != null) {
-            val subTask = subTaskRepository.findById(subTaskId).orElse(null)
-                ?: throw IllegalArgumentException("SubTask not found")
-            if (subTask.task.id != taskId) {
-                throw IllegalArgumentException("SubTask does not belong to the specified task")
-            }
-            subTask
-        } else {
-            null
-        }
+        taskOwnershipGuardService.ensureSubTaskBelongsToTask(taskId, subTaskId)
 
     companion object {
         fun Note.toNoteResponse() =
