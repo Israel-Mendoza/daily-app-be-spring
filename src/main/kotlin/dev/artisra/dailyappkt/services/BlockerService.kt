@@ -15,6 +15,7 @@ class BlockerService(
     private val blockerRepository: BlockerRepository,
     private val taskOwnershipGuardService: TaskOwnershipGuardService,
     private val taskSynchronizerService: TaskSynchronizerService,
+    private val subTaskSynchronizerService: SubTaskSynchronizerService,
 ) {
 
     fun findAll(): List<BlockerResponse> = blockerRepository.findAll().map { it.toBlockerResponse() }
@@ -37,6 +38,7 @@ class BlockerService(
         )
         val savedBlocker = blockerRepository.save(newBlocker)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
         return savedBlocker.toBlockerResponse()
     }
 
@@ -57,6 +59,7 @@ class BlockerService(
         existingBlocker.reason = blocker.reason
         val savedBlocker = blockerRepository.save(existingBlocker)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
         return savedBlocker.toBlockerResponse()
     }
 
@@ -72,20 +75,26 @@ class BlockerService(
         blocker.reason?.let { existingBlocker.reason = it }
         blocker.isResolved?.let { existingBlocker.isResolved = it }
 
+        val previousSubTaskId = existingBlocker.subTask?.id
+
         if (blocker.subTaskId != null) {
             existingBlocker.subTask = ensureSubTaskBelongsToTask(taskId, blocker.subTaskId)
         }
 
         val savedBlocker = blockerRepository.save(existingBlocker)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, previousSubTaskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
         return savedBlocker.toBlockerResponse()
     }
 
     fun deleteById(id: Int) {
         val blocker = blockerRepository.findById(id).orElseThrow { IllegalArgumentException("Blocker not found") }
         val taskId = blocker.task.id ?: throw IllegalArgumentException("Task not found")
+        val subTaskId = blocker.subTask?.id
         blockerRepository.deleteById(id)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, subTaskId)
     }
 
     fun resolve(id: Int, taskId: Int): BlockerResponse {
@@ -100,6 +109,7 @@ class BlockerService(
         blocker.isResolved = true
         val savedBlocker = blockerRepository.save(blocker)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
         return savedBlocker.toBlockerResponse()
     }
 
@@ -115,6 +125,7 @@ class BlockerService(
         blocker.isResolved = false
         val savedBlocker = blockerRepository.save(blocker)
         taskSynchronizerService.syncTaskWithBlockers(taskId)
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
         return savedBlocker.toBlockerResponse()
     }
 

@@ -10,7 +10,11 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
-class SubTaskService(private val subTaskRepository: SubTaskRepository, private val taskRepository: TaskRepository) {
+class SubTaskService(
+    private val subTaskRepository: SubTaskRepository,
+    private val taskRepository: TaskRepository,
+    private val subTaskPolicyService: SubTaskPolicyService,
+) {
 
     fun findAll(): List<SubTaskResponse> = subTaskRepository.findAll().map { it.toSubTaskResponse() }
 
@@ -26,6 +30,8 @@ class SubTaskService(private val subTaskRepository: SubTaskRepository, private v
 
     fun save(taskId: Int, subTask: CreateSubTaskRequest): SubTaskResponse {
         val task = taskRepository.findById(taskId).orElse(null) ?: throw IllegalArgumentException("Task not found")
+        subTaskPolicyService.ensureCanCreateOrAssignToTask(task.status)
+
         val newSubTask = SubTask(task = task, title = subTask.title, isCompleted = subTask.isCompleted)
         return subTaskRepository.save(newSubTask).toSubTaskResponse()
     }
@@ -38,20 +44,35 @@ class SubTaskService(private val subTaskRepository: SubTaskRepository, private v
 
     fun update(taskId: Int, id: Int, subTask: UpdateSubTaskRequest): SubTaskResponse {
         val existingSubTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
+        subTaskPolicyService.ensureCanCreateOrAssignToTask(existingSubTask.task.status)
+
         existingSubTask.title = subTask.title ?: existingSubTask.title
-        existingSubTask.isCompleted = subTask.isCompleted ?: existingSubTask.isCompleted
+
+        val targetIsCompleted = subTask.isCompleted ?: existingSubTask.isCompleted
+        if (targetIsCompleted) {
+            subTaskPolicyService.ensureCanCompleteSubTask(existingSubTask)
+        }
+        existingSubTask.isCompleted = targetIsCompleted
+
         return subTaskRepository.save(existingSubTask).toSubTaskResponse()
     }
 
     fun replace(taskId: Int, id: Int, subTask: CreateSubTaskRequest): SubTaskResponse? {
         val existingSubTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
+        subTaskPolicyService.ensureCanCreateOrAssignToTask(existingSubTask.task.status)
+
         existingSubTask.title = subTask.title
+        if (subTask.isCompleted) {
+            subTaskPolicyService.ensureCanCompleteSubTask(existingSubTask)
+        }
         existingSubTask.isCompleted = subTask.isCompleted
+
         return subTaskRepository.save(existingSubTask).toSubTaskResponse()
     }
 
     fun complete(taskId: Int, id: Int): SubTaskResponse {
         val subTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
+        subTaskPolicyService.ensureCanCompleteSubTask(subTask)
         subTask.isCompleted = true
         return subTaskRepository.save(subTask).toSubTaskResponse()
     }

@@ -9,7 +9,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
-class TaskService(private val taskRepository: TaskRepository) {
+class TaskService(
+    private val taskRepository: TaskRepository,
+    private val taskPolicyService: TaskPolicyService,
+) {
 
     fun findAll(): List<TaskResponse> = taskRepository.findAll().map { it.toTaskResponse() }
 
@@ -32,6 +35,7 @@ class TaskService(private val taskRepository: TaskRepository) {
 
     fun startTask(id: Int) {
         val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.IN_PROGRESS)
         log.info("Starting task: {}", existingTask.title)
         existingTask.status = TaskStatus.IN_PROGRESS.toString()
         taskRepository.save(existingTask)
@@ -39,12 +43,14 @@ class TaskService(private val taskRepository: TaskRepository) {
 
     fun completeTask(id: Int) {
         val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.DONE)
         existingTask.status = TaskStatus.DONE.toString()
         taskRepository.save(existingTask)
     }
 
     fun reopenTask(id: Int) {
         val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.TODO)
         existingTask.status = TaskStatus.TODO.toString()
         taskRepository.save(existingTask)
     }
