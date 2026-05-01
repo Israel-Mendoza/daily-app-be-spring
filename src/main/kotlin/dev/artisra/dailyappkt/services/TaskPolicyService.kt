@@ -1,6 +1,8 @@
 package dev.artisra.dailyappkt.services
 
 import dev.artisra.dailyappkt.entities.Task
+import dev.artisra.dailyappkt.exceptions.OpenBlockersException
+import dev.artisra.dailyappkt.exceptions.OpenSubTasksException
 import dev.artisra.dailyappkt.models.enums.TaskStatus
 import dev.artisra.dailyappkt.repositories.BlockerRepository
 import dev.artisra.dailyappkt.repositories.SubTaskRepository
@@ -31,7 +33,7 @@ class TaskPolicyService(
         if (currentStatus == TaskStatus.BLOCKED && targetStatus != TaskStatus.BLOCKED) {
             val hasUnresolvedBlockers = blockerRepository.findByTaskId(task.id!!).any { !it.isResolved }
             if (hasUnresolvedBlockers) {
-                throw IllegalArgumentException("Cannot change task status from BLOCKED while unresolved blockers exist")
+                throw OpenBlockersException("Cannot change task status from BLOCKED while unresolved blockers exist")
             }
         }
     }
@@ -42,7 +44,7 @@ class TaskPolicyService(
     private fun ensureCanCompleteTask(task: Task, targetStatus: TaskStatus) {
         val hasIncompleteSubtasks = subTaskRepository.findByTaskId(task.id!!).any { !it.isCompleted }
         if (targetStatus == TaskStatus.DONE && hasIncompleteSubtasks) {
-            throw IllegalArgumentException("Cannot change task status to DONE while incomplete subtasks exist")
+            throw OpenSubTasksException("Cannot change task status to DONE while incomplete subtasks exist")
         }
     }
 }

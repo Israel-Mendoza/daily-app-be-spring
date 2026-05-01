@@ -1,7 +1,6 @@
 package dev.artisra.dailyappkt.services
 
 import dev.artisra.dailyappkt.entities.SubTask
-import dev.artisra.dailyappkt.models.enums.TaskStatus
 import dev.artisra.dailyappkt.models.requests.CreateAndUpdateSubTaskRequest
 import dev.artisra.dailyappkt.models.responses.SubTaskResponse
 import dev.artisra.dailyappkt.repositories.SubTaskRepository
@@ -13,6 +12,7 @@ import org.springframework.stereotype.Service
 class SubTaskService(
     private val subTaskRepository: SubTaskRepository,
     private val taskRepository: TaskRepository,
+    private val taskSynchronizerService: TaskSynchronizerService,
     private val subTaskPolicyService: SubTaskPolicyService,
 ) {
 
@@ -30,8 +30,8 @@ class SubTaskService(
 
     fun save(taskId: Int, subTask: CreateAndUpdateSubTaskRequest): SubTaskResponse {
         val task = taskRepository.findById(taskId).orElse(null) ?: throw IllegalArgumentException("Task not found")
-        subTaskPolicyService.ensureCanCreateOrAssignToTask(task.status)
         val newSubTask = SubTask(task = task, title = subTask.title, isCompleted = false)
+        taskSynchronizerService.syncTaskWithNewSubTasks(taskId)
         return subTaskRepository.save(newSubTask).toSubTaskResponse()
     }
 
@@ -58,7 +58,7 @@ class SubTaskService(
         val subTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
         subTask.isCompleted = false
         subTaskRepository.save(subTask)
-        reopenTask(taskId)
+        taskSynchronizerService.syncTaskWithNewSubTasks(taskId)
     }
 
     private fun getSubTaskAndEnsureTaskOwnership(taskId: Int, subTaskId: Int): SubTask {
@@ -66,13 +66,6 @@ class SubTaskService(
             subTaskRepository.findById(subTaskId).orElseThrow { IllegalArgumentException("SubTask not found") }
         if (subTask.task.id != taskId) throw IllegalArgumentException("SubTask does not belong to the specified task")
         return subTask
-    }
-
-    private fun reopenTask(taskId: Int) {
-        val task = taskRepository.findById(taskId).orElse(null) ?: throw IllegalArgumentException("Task not found")
-        if (task.status == TaskStatus.DONE.toString()) task.status = TaskStatus.IN_PROGRESS.toString()
-        else return
-        taskRepository.save(task)
     }
 
     companion object {

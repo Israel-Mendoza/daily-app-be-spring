@@ -34,5 +34,15 @@ class TaskSynchronizerService(
         taskRepository.save(task)
     }
 
-    private fun getTask(taskId: Int) = taskRepository.findById(taskId).orElseThrow { IllegalArgumentException("Task not found") }
+    fun syncTaskWithNewSubTasks(taskId: Int) {
+        val task = getTask(taskId)
+
+        if (task.status == TaskStatus.DONE.toString()) {
+            task.status = TaskStatus.IN_PROGRESS.toString()
+        }
+        taskRepository.save(task)
+    }
+
+    private fun getTask(taskId: Int) =
+        taskRepository.findById(taskId).orElseThrow { IllegalArgumentException("Task not found") }
 }

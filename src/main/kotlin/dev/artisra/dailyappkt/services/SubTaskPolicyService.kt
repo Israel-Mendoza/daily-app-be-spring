@@ -1,6 +1,8 @@
 package dev.artisra.dailyappkt.services
 
 import dev.artisra.dailyappkt.entities.SubTask
+import dev.artisra.dailyappkt.exceptions.DoneOrCanceledTaskException
+import dev.artisra.dailyappkt.exceptions.OpenBlockersException
 import dev.artisra.dailyappkt.models.enums.TaskStatus
 import dev.artisra.dailyappkt.repositories.BlockerRepository
 import org.springframework.stereotype.Service
@@ -15,7 +17,7 @@ class SubTaskPolicyService(
      */
     fun ensureCanCreateOrAssignToTask(taskStatus: String) {
         if (taskStatus == TaskStatus.DONE.toString() || taskStatus == TaskStatus.CANCELED.toString()) {
-            throw IllegalArgumentException("Cannot create or assign subtasks to a task that is DONE or CANCELED")
+            throw DoneOrCanceledTaskException("Cannot create or assign subtasks to a task that is DONE or CANCELED")
         }
     }
 
@@ -28,7 +30,7 @@ class SubTaskPolicyService(
 
         val hasUnresolvedBlockers = blockerRepository.findByTaskIdAndSubTaskId(taskId, subTaskId).any { !it.isResolved }
         if (hasUnresolvedBlockers) {
-            throw IllegalArgumentException("Cannot complete subtask with unresolved blockers")
+            throw OpenBlockersException("Cannot complete subtask with unresolved blockers")
         }
     }
 }
