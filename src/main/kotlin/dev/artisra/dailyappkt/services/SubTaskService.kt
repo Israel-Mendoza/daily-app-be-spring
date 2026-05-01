@@ -14,6 +14,7 @@ class SubTaskService(
     private val subTaskRepository: SubTaskRepository,
     private val taskRepository: TaskRepository,
     private val subTaskPolicyService: SubTaskPolicyService,
+    private val taskSynchronizerService: TaskSynchronizerService,
 ) {
 
     fun findAll(): List<SubTaskResponse> = subTaskRepository.findAll().map { it.toSubTaskResponse() }
@@ -54,7 +55,11 @@ class SubTaskService(
         }
         existingSubTask.isCompleted = targetIsCompleted
 
-        return subTaskRepository.save(existingSubTask).toSubTaskResponse()
+        val savedSubTask = subTaskRepository.save(existingSubTask)
+
+        taskSynchronizerService.syncTaskWithSubtasks(taskId)
+
+        return savedSubTask.toSubTaskResponse()
     }
 
     fun replace(taskId: Int, id: Int, subTask: CreateSubTaskRequest): SubTaskResponse? {
@@ -67,7 +72,11 @@ class SubTaskService(
         }
         existingSubTask.isCompleted = subTask.isCompleted
 
-        return subTaskRepository.save(existingSubTask).toSubTaskResponse()
+        val savedSubTask = subTaskRepository.save(existingSubTask)
+
+        taskSynchronizerService.syncTaskWithSubtasks(taskId)
+
+        return savedSubTask.toSubTaskResponse()
     }
 
     fun complete(taskId: Int, id: Int): SubTaskResponse {
@@ -81,6 +90,7 @@ class SubTaskService(
         val subTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
         subTask.isCompleted = false
         subTaskRepository.save(subTask)
+        taskSynchronizerService.syncTaskWithSubtasks(taskId)
     }
 
     private fun getSubTaskAndEnsureTaskOwnership(taskId: Int, subTaskId: Int): SubTask {
