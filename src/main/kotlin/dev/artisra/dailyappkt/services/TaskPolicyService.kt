@@ -10,6 +10,9 @@ class TaskPolicyService(
     private val blockerRepository: BlockerRepository,
 ) {
 
+    /**
+     * Ensures that the task status is not BLOCKED if there are unresolved blockers.
+     */
     fun ensureCanTransitionStatus(task: Task, targetStatus: TaskStatus) {
         val taskId = task.id ?: throw IllegalArgumentException("Task not found")
         val currentStatus = TaskStatus.valueOf(task.status)

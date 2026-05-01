@@ -13,6 +13,9 @@ class TaskSynchronizerService(
     private val taskRepository: TaskRepository,
 ) {
 
+    /**
+     * Synchronizes a task's status based on its blockers by setting the task's status to BLOCKED if there are unresolved blockers.
+     */
     fun syncTaskWithBlockers(taskID: Int) {
         val task = getTask(taskID)
 
@@ -31,6 +34,9 @@ class TaskSynchronizerService(
         taskRepository.save(task)
     }
 
+    /**
+     * Synchronizes a task's status based on its subtasks by setting the task's status to IN_PROGRESS if there are uncompleted subtasks.
+     */
     fun syncTaskWithSubtasks(taskId: Int) {
         val task = getTask(taskId)
 
