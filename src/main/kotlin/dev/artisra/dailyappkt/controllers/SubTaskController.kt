@@ -1,7 +1,6 @@
 package dev.artisra.dailyappkt.controllers
 
-import dev.artisra.dailyappkt.models.requests.CreateSubTaskRequest
-import dev.artisra.dailyappkt.models.requests.UpdateSubTaskRequest
+import dev.artisra.dailyappkt.models.requests.CreateAndUpdateSubTaskRequest
 import dev.artisra.dailyappkt.models.responses.SubTaskResponse
 import dev.artisra.dailyappkt.services.SubTaskService
 import org.slf4j.LoggerFactory
@@ -11,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -38,19 +36,13 @@ class SubTaskController(
     }
 
     @PostMapping
-    fun createSubTask(@PathVariable taskId: Int, @RequestBody subTaskRequest: CreateSubTaskRequest): ResponseEntity<SubTaskResponse> {
+    fun createSubTask(@PathVariable taskId: Int, @RequestBody subTaskRequest: CreateAndUpdateSubTaskRequest): ResponseEntity<SubTaskResponse> {
         val createdSubTask = subTaskService.save(taskId, subTaskRequest)
         return ResponseEntity.created(URI.create("/tasks/$taskId/subtasks/${createdSubTask.id}")).body(createdSubTask)
     }
 
-    @PutMapping("/{id}")
-    fun replaceSubTask(@PathVariable taskId: Int, @PathVariable id: Int, @RequestBody subTaskRequest: CreateSubTaskRequest): ResponseEntity<SubTaskResponse> {
-        val replacedSubTask = subTaskService.replace(taskId, id, subTaskRequest)
-        return ResponseEntity.ok(replacedSubTask)
-    }
-
     @PatchMapping("/{id}")
-    fun updateSubTask(@PathVariable taskId: Int, @PathVariable id: Int, @RequestBody subTaskRequest: UpdateSubTaskRequest): ResponseEntity<SubTaskResponse> {
+    fun updateSubTask(@PathVariable taskId: Int, @PathVariable id: Int, @RequestBody subTaskRequest: CreateAndUpdateSubTaskRequest): ResponseEntity<SubTaskResponse> {
         val updatedSubTask = subTaskService.update(taskId, id, subTaskRequest)
         return ResponseEntity.ok(updatedSubTask)
     }

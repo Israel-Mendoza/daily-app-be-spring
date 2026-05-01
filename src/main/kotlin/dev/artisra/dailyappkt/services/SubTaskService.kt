@@ -1,8 +1,7 @@
 package dev.artisra.dailyappkt.services
 
 import dev.artisra.dailyappkt.entities.SubTask
-import dev.artisra.dailyappkt.models.requests.CreateSubTaskRequest
-import dev.artisra.dailyappkt.models.requests.UpdateSubTaskRequest
+import dev.artisra.dailyappkt.models.requests.CreateAndUpdateSubTaskRequest
 import dev.artisra.dailyappkt.models.responses.SubTaskResponse
 import dev.artisra.dailyappkt.repositories.SubTaskRepository
 import dev.artisra.dailyappkt.repositories.TaskRepository
@@ -29,11 +28,10 @@ class SubTaskService(
     fun findAllByTaskId(taskId: Int): List<SubTaskResponse> =
         subTaskRepository.findByTaskId(taskId).map { it.toSubTaskResponse() }
 
-    fun save(taskId: Int, subTask: CreateSubTaskRequest): SubTaskResponse {
+    fun save(taskId: Int, subTask: CreateAndUpdateSubTaskRequest): SubTaskResponse {
         val task = taskRepository.findById(taskId).orElse(null) ?: throw IllegalArgumentException("Task not found")
         subTaskPolicyService.ensureCanCreateOrAssignToTask(task.status)
-
-        val newSubTask = SubTask(task = task, title = subTask.title, isCompleted = subTask.isCompleted)
+        val newSubTask = SubTask(task = task, title = subTask.title, isCompleted = false)
         return subTaskRepository.save(newSubTask).toSubTaskResponse()
     }
 
@@ -43,40 +41,10 @@ class SubTaskService(
         subTaskRepository.deleteById(id)
     }
 
-    fun update(taskId: Int, id: Int, subTask: UpdateSubTaskRequest): SubTaskResponse {
+    fun update(taskId: Int, id: Int, subTask: CreateAndUpdateSubTaskRequest): SubTaskResponse {
         val existingSubTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
-        subTaskPolicyService.ensureCanCreateOrAssignToTask(existingSubTask.task.status)
-
-        existingSubTask.title = subTask.title ?: existingSubTask.title
-
-        val targetIsCompleted = subTask.isCompleted ?: existingSubTask.isCompleted
-        if (targetIsCompleted) {
-            subTaskPolicyService.ensureCanCompleteSubTask(existingSubTask)
-        }
-        existingSubTask.isCompleted = targetIsCompleted
-
-        val savedSubTask = subTaskRepository.save(existingSubTask)
-
-        taskSynchronizerService.syncTaskWithSubtasks(taskId)
-
-        return savedSubTask.toSubTaskResponse()
-    }
-
-    fun replace(taskId: Int, id: Int, subTask: CreateSubTaskRequest): SubTaskResponse? {
-        val existingSubTask = getSubTaskAndEnsureTaskOwnership(taskId, id)
-        subTaskPolicyService.ensureCanCreateOrAssignToTask(existingSubTask.task.status)
-
         existingSubTask.title = subTask.title
-        if (subTask.isCompleted) {
-            subTaskPolicyService.ensureCanCompleteSubTask(existingSubTask)
-        }
-        existingSubTask.isCompleted = subTask.isCompleted
-
-        val savedSubTask = subTaskRepository.save(existingSubTask)
-
-        taskSynchronizerService.syncTaskWithSubtasks(taskId)
-
-        return savedSubTask.toSubTaskResponse()
+        return subTaskRepository.save(existingSubTask).toSubTaskResponse()
     }
 
     fun complete(taskId: Int, id: Int): SubTaskResponse {
@@ -102,8 +70,6 @@ class SubTaskService(
 
     companion object {
         private val log = LoggerFactory.getLogger(SubTaskService::class.java)
-
-
 
         fun SubTask.toSubTaskResponse() =
             SubTaskResponse(
