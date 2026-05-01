@@ -34,22 +34,5 @@ class TaskSynchronizerService(
         taskRepository.save(task)
     }
 
-    /**
-     * Synchronizes a task's status based on its subtasks by setting the task's status to IN_PROGRESS if there are uncompleted subtasks.
-     */
-    fun syncTaskWithSubtasks(taskId: Int) {
-        val task = getTask(taskId)
-
-        val subTasks = subTaskRepository.findByTaskId(taskId)
-
-        task.status = if (subTasks.any { !it.isCompleted }) {
-            TaskStatus.IN_PROGRESS.toString()
-        } else {
-            task.status
-        }
-
-        taskRepository.save(task)
-    }
-
     private fun getTask(taskId: Int) = taskRepository.findById(taskId).orElseThrow { IllegalArgumentException("Task not found") }
 }

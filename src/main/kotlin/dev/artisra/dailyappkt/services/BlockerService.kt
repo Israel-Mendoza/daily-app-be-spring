@@ -124,8 +124,8 @@ class BlockerService(
 
         blocker.isResolved = false
         val savedBlocker = blockerRepository.save(blocker)
-        taskSynchronizerService.syncTaskWithBlockers(taskId)
-        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id)
+        taskSynchronizerService.syncTaskWithBlockers(taskId) // Reopen task if needed first
+        subTaskSynchronizerService.syncSubTaskWithBlockers(taskId, savedBlocker.subTask?.id) // Then reopen subtask if needed
         return savedBlocker.toBlockerResponse()
     }
 
