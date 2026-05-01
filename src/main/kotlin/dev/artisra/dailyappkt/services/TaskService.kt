@@ -26,7 +26,7 @@ class TaskService(
     }
 
     fun update(id: Int, task: CreateTaskRequest): TaskResponse {
-        val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        val existingTask = getTaskFromRepository(id)
         existingTask.title = task.title
         return taskRepository.save(existingTask).toTaskResponse()
     }
@@ -34,7 +34,7 @@ class TaskService(
     fun deleteById(id: Int) = taskRepository.deleteById(id)
 
     fun startTask(id: Int) {
-        val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        val existingTask = getTaskFromRepository(id)
         taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.IN_PROGRESS)
         log.info("Starting task: {}", existingTask.title)
         existingTask.status = TaskStatus.IN_PROGRESS.toString()
@@ -42,24 +42,26 @@ class TaskService(
     }
 
     fun completeTask(id: Int) {
-        val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        val existingTask = getTaskFromRepository(id)
         taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.DONE)
         existingTask.status = TaskStatus.DONE.toString()
         taskRepository.save(existingTask)
     }
 
     fun reopenTask(id: Int) {
-        val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        val existingTask = getTaskFromRepository(id)
         taskPolicyService.ensureCanTransitionStatus(existingTask, TaskStatus.TODO)
         existingTask.status = TaskStatus.TODO.toString()
         taskRepository.save(existingTask)
     }
 
     fun cancelTask(id: Int) {
-        val existingTask = taskRepository.findById(id).orElseThrow { IllegalArgumentException("Task not found") }
+        val existingTask = getTaskFromRepository(id)
         existingTask.status = TaskStatus.CANCELED.toString()
         taskRepository.save(existingTask)
     }
+
+    private fun getTaskFromRepository(taskId: Int) = taskRepository.findById(taskId).orElseThrow { IllegalArgumentException("Task not found") }
 
     companion object {
 
