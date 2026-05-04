@@ -56,8 +56,23 @@ The API will be available at:
 
 ## Run Tests
 
+Tests are classified into **Unit** and **Integration** tests using JUnit 5 tags.
+
+### Run All Tests
 ```bash
 ./gradlew test
+```
+
+### Run Unit Tests
+Unit tests use **MockK** to isolate services and verify business logic without database dependencies.
+```bash
+./gradlew test -Djunit.platform.include.tags=unit
+```
+
+### Run Integration Tests
+Integration tests use an in-memory **H2** database and `@SpringBootTest` to verify end-to-end workflows and persistence.
+```bash
+./gradlew test -Djunit.platform.include.tags=integration
 ```
 
 ## Swagger / OpenAPI Documentation
