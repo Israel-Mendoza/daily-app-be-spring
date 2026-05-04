@@ -26,6 +26,8 @@ This project is built with:
 - `src/main/kotlin/dev/artisra/dailyappkt/models` — request/response DTOs and enums
 - `src/main/resources/application.yml` — runtime configuration
 
+For more details on the system design, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Requirements
 
 - Java 24 (configured in `build.gradle.kts` toolchain)

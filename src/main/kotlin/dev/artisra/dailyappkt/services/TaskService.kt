@@ -97,8 +97,8 @@ class TaskService(
             id = this.id!!,
             title = this.title,
             status = this.status,
-            createAt = this.createdAt?.toString() ?: "",
-            updateAt = this.updatedAt?.toString() ?: ""
+            createdAt = this.createdAt?.toString() ?: "",
+            updatedAt = this.updatedAt?.toString() ?: ""
         )
     }
 }
