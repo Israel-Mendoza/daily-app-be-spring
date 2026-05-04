@@ -1,6 +1,7 @@
 package dev.artisra.dailyappkt.controllers
 
 import dev.artisra.dailyappkt.models.requests.CreateTaskRequest
+import dev.artisra.dailyappkt.models.responses.TaskDetailsResponse
 import dev.artisra.dailyappkt.models.responses.TaskResponse
 import dev.artisra.dailyappkt.services.TaskService
 import org.springframework.http.ResponseEntity
@@ -30,6 +31,12 @@ class TaskController(
     fun getTaskById(@PathVariable id: Int): ResponseEntity<TaskResponse> {
         val task = taskService.findById(id) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(task)
+    }
+
+    @GetMapping("/{id}/details")
+    fun getTaskDetailsById(@PathVariable id: Int): ResponseEntity<TaskDetailsResponse> {
+        val taskDetails = taskService.getTaskDetailsById(id) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(taskDetails)
     }
 
     @PostMapping
