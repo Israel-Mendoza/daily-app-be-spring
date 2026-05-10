@@ -40,7 +40,7 @@ jobs:
           cache: gradle
 
       - name: Run unit tests
-        run: ./gradlew test --tests "*" --exclude-tag integration
+        run: ./gradlew test -DexcludeTags=integration
 
   integration-tests:
     name: Run Integration Tests
@@ -58,4 +58,4 @@ jobs:
           cache: gradle
 
       - name: Run integration tests
-        run: ./gradlew test --tests "*" --include-tag integration
+        run: ./gradlew test -DincludeTags=integration
